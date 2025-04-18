@@ -5,7 +5,7 @@ import numpy as np
 import time
 import re
 from streamlit_option_menu import option_menu
-
+df1 = pd.read_csv('mobile phone price prediction.csv')
 df = pd.read_csv('df.csv')
 rf_model = jb.load('rf__model.sav')
 
@@ -28,26 +28,67 @@ with col1:
 
 with col2:
     Ram = st.slider('Masukan angka Ram(GB):', df['Ram'].min(), df['Ram'].max())
-    Spec_score = st.slider('Masukan Spec Skor', df['Spec_score'].min(), df['Spec_score'].max())
+    Spec_score = st.slider('Masukan Spec Skor', df1['Spec_score'].min(), df1['Spec_score'].max())
     Inbuilt_memory = st.radio('Masukan Ukuran Internal memory(GB):', df['Inbuilt_memory'].unique())       
+
+# Debugging: Periksa jumlah fitur yang diharapkan oleh model
+st.write(f"Jumlah fitur yang diharapkan oleh model: {rf_model.n_features_in_}")
 
 InbuiltMemory_SpecScore = Inbuilt_memory * Spec_score
 InbuiltMemory_Ram = Inbuilt_memory * Ram
 Ram_SpecScore = Ram * Spec_score
 Ram_squared = Ram **2
 Spec_score_squared = Spec_score **2
-rear_count = df['rear_count'].mode()
-total_rear_mp = df['total_rear_mp'].mode()
-front_mp = df['front_mp'].mode()
-screen_heigt = df['screen_heigt'].mode()
-screen_width = df['screen_width'].mode()
-df = df.select_dtypes(include='object')
+rear_count = df['rear_count'].mode()[0]
+total_rear_mp = df['total_rear_mp'].mode()[0]
+front_mp = df['front_mp'].mode()[0]
+screen_heigt = df['screen_heigt'].mode()[0]
+screen_width = df['screen_width'].mode()[0]
+
+
+if 'No_of_sim' not in df1.columns or 'Processor_name' not in df1.columns:
+    st.error("Kolom 'No_of_sim' atau 'Processor_name' tidak ditemukan di df1.")
+else:
+    df_1 = df1[['No_of_sim', 'Processor_name']].fillna(0)
+    df_1 = df_1.drop_duplicates()
+    df = pd.get_dummies(df_1, columns=['No_of_sim', 'Processor_name'], drop_first=True)
+object_columns = df.select_dtypes(include='object').columns
+st.write(len(df.columns))
+
+# Gabungkan input pengguna dengan DataFrame
+df_input = pd.DataFrame([{
+    'Battery': Battery,
+    'Rating': Rating,
+    'Display': Display,
+    'Ram': Ram,
+    'Spec_score': Spec_score,
+    'Inbuilt_memory': Inbuilt_memory,
+    'InbuiltMemory_SpecScore': InbuiltMemory_SpecScore,
+    'InbuiltMemory_Ram': InbuiltMemory_Ram,
+    'Ram_SpecScore': Ram_SpecScore,
+    'Ram_squared': Ram_squared,
+    'Spec_score_squared': Spec_score_squared,
+    'rear_count': rear_count,
+    'total_rear_mp': total_rear_mp,
+    'front_mp': front_mp,
+    'screen_width': screen_width,
+    'screen_heigt': screen_heigt
+}])
+
+# Gabungkan dengan fitur dari df (hasil pd.get_dummies)
+df_combined = pd.concat([df_input, df], axis=1)
+
+# Pastikan jumlah fitur sesuai dengan model
+missing_cols = set(rf_model.feature_names_in_) - set(df_combined.columns)
+for col in missing_cols:
+    df_combined[col] = 0  # Tambahkan kolom yang hilang dengan nilai default
+
+# Urutkan kolom agar sesuai dengan model
+df_combined = df_combined[rf_model.feature_names_in_]
 
 # Prediksi
 if st.button("Prediksi"):
-    input_data = np.array([[Battery, Rating, Display, Ram, Spec_score,
-                            Inbuilt_memory, InbuiltMemory_SpecScore, InbuiltMemory_Ram,
-                            Ram_SpecScore, Ram_squared, Spec_score_squared, rear_count, 
-                            total_rear_mp, front_mp, screen_width, screen_heigt ]])
-    hasil = rf_model.predict(input_data)
+    with st.spinner('Sedang memproses...'):
+        time.sleep(2)
+    hasil = rf_model.predict(df_combined)
     st.success(f"Perkiraan Harga: {hasil[0]:,.2f}")
