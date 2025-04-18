@@ -3,6 +3,7 @@ import pickle as pkl
 import pandas as pd
 import numpy as np
 import time
+import sklearn
 df1 = pd.read_csv('mobile phone price prediction.csv')
 df = pd.read_csv('df.csv')
 with open ('rf_model.pkl', 'rb') as file:
